@@ -1,57 +1,57 @@
-# Legal Ops AI — Production Case Study
+# Legal Ops AI — Case Study de Produção
 
-> **[Versão em português →](./README.pt-BR.md)**
+> **[English version →](./README.en.md)**
 
-A legal operations platform I designed, built and operate solo for a multi-team law firm in Brazil. In production since **May 2026**, used daily by the whole firm — lawyers, controllers, customer success and the firm's own clients.
+Plataforma de operações jurídicas que eu projetei, construí e opero sozinho para um escritório de advocacia multi-equipes no Brasil. Em produção desde **maio de 2026**, usada diariamente pelo escritório inteiro — advogados, controladoria, sucesso do cliente e os próprios clientes do escritório.
 
-This is a **case study repository**: the product is proprietary and the full source stays private. What you'll find here is the architecture, the engineering decisions, sanitized code excerpts from the AI pipelines, and the lessons learned from operating LLMs in production. All names, parties and case numbers in examples are fictional.
+Este é um **repositório de case study**: o produto é proprietário e o código completo permanece privado. O que você encontra aqui é a arquitetura, as decisões de engenharia, trechos de código sanitizados dos pipelines de IA e as lições de operar LLMs em produção. Todos os nomes, partes e números de processo nos exemplos são fictícios.
 
 ---
 
-## The numbers
+## Os números
 
 | | |
 |---|---|
-| In production | since May 2026, no dedicated ops team — just me |
-| Lawsuits tracked | ~1,060 across the firm's portfolio |
-| AI pipelines shipped to production | 3 — court-diary classification and batch summarization still running; the docket robot was deliberately retired (its story below) |
-| Serverless functions | ~40 (TypeScript + Python, same repo, same deploy) |
-| Scheduled jobs | 16 Vercel crons (captures, reports, pushes, watchdogs) |
-| Clients | mobile-first PWA + native iOS app on the App Store |
+| Em produção | desde maio/2026, sem time de ops — só eu |
+| Processos acompanhados | ~1.060 em toda a carteira do escritório |
+| Pipelines de IA entregues em produção | 3 — classificação do diário oficial e resumo em lote seguem rodando; o robô de autos foi aposentado deliberadamente (história abaixo) |
+| Funções serverless | ~40 (TypeScript + Python, mesmo repo, mesmo deploy) |
+| Jobs agendados | 16 crons na Vercel (capturas, relatórios, pushes, vigias) |
+| Clientes | PWA mobile-first + app iOS nativo na App Store |
 
-## What it does
+## O que a plataforma faz
 
-The firm lives and dies by **court deadlines**. The platform runs that entire operation:
+O escritório vive e morre por **prazos judiciais**. A plataforma roda essa operação inteira:
 
-- **Deadline desks** — litigation and consulting activity boards with a traffic-light system driven by two deadline layers (the firm's internal deadline vs. the fatal legal one)
-- **Court-diary controllership (AI)** — automatically captures every publication addressed to the firm from Brazil's official court diary (DJEN), has **Claude Opus** read and classify each one, computes the legal deadline deterministically, and turns it into a tracked activity in one click
-- **Court robot (AI)** — a resident robot that logged into the labor-court system (PJe) with an A3 smartcard certificate, read case dockets from the primary source, and had **Claude Haiku** produce an analyst-grade briefing per movement — severity-labeled *act / look / record / routine*. Shipped, operated, and later deliberately retired ([the full story](#2-docket-analysis--claude-haiku-reading-raw-court-files))
-- **Client portal** — each client company gets its own dashboard (white-labeled, iOS app included)
-- Plus: two-step approval queues, a leads CRM, monthly `.docx` reports per client uploaded to Google Drive, daily team reports by e-mail, self-hosted web push, full audit trail with soft deletes, 1-way Trello sync.
+- **Mesas de prazos** — quadros de atividades contenciosas e consultivas com sistema de faróis guiado por duas camadas de prazo (o prazo interno do escritório vs. o prazo fatal legal)
+- **Controladoria do diário oficial (IA)** — captura automaticamente toda publicação endereçada ao escritório no DJEN, o **Claude Opus** lê e classifica cada uma, o prazo legal é calculado deterministicamente, e vira atividade rastreada em 1 clique
+- **Robô judicial (IA)** — robô residente que logava no PJe com certificado A3 (smartcard), lia os autos direto da fonte primária, e o **Claude Haiku** produzia um briefing de analista por movimentação — rotulado por gravidade: *agir / olhar / registro / rotina*. Entregue, operado e depois aposentado deliberadamente ([a história completa](#2-análise-de-autos--claude-haiku-lendo-os-pdfs-do-processo))
+- **Portal do cliente** — cada empresa cliente tem seu próprio dashboard (white-label, incluindo o app iOS)
+- E mais: filas de aprovação em duas etapas, CRM de leads, relatórios mensais `.docx` por cliente com upload no Google Drive, relatórios diários por equipe via e-mail, web push self-hosted, trilha de auditoria completa com soft delete, sync 1-way com Trello.
 
-## Architecture
+## Arquitetura
 
 ```mermaid
 flowchart LR
-    subgraph Client
-        SPA["React 19 SPA (PWA)\nService Worker: push + 3-layer auto-update"]
-        iOS["iOS app (React Native/Expo)\nnative client area + team WebView"]
+    subgraph Cliente
+        SPA["SPA React 19 (PWA)\nService Worker: push + auto-update em 3 camadas"]
+        iOS["App iOS (React Native/Expo)\nárea do cliente nativa + WebView da equipe"]
     end
     subgraph Vercel
-        FN["Serverless Functions\n~32 TypeScript + 8 Python"]
-        CRON["16 cron jobs\ncaptures · reports · watchdogs"]
+        FN["Funções serverless\n~32 TypeScript + 8 Python"]
+        CRON["16 cron jobs\ncapturas · relatórios · vigias"]
     end
-    subgraph Data
-        PG[("Supabase Postgres\nRLS locked · server-side authz only")]
+    subgraph Dados
+        PG[("Supabase Postgres\nRLS travada · autorização só no servidor")]
     end
-    subgraph External
-        DJEN["DJEN (official court diary)"]
-        ANT["Anthropic API\nOpus · Haiku"]
+    subgraph Externos
+        DJEN["DJEN (diário oficial)"]
+        ANT["API Anthropic\nOpus · Haiku"]
         MISC["Trello · Google Drive\nSMTP · Web Push (VAPID)"]
     end
-    ROBOT["Resident robot (mini PC)\nPlaywright + smartcard cert\nread PJe dockets at the source\n(now retired)"]
+    ROBOT["Robô residente (mini PC)\nPlaywright + certificado A3\nlia os autos do PJe na fonte\n(hoje aposentado)"]
 
-    SPA -- "Bearer session token" --> FN
+    SPA -- "token de sessão (Bearer)" --> FN
     iOS --> FN
     CRON --> FN
     FN -- service_role --> PG
@@ -59,85 +59,85 @@ flowchart LR
     FN --> ANT
     FN --> MISC
     ROBOT --> ANT
-    ROBOT -- writes --> PG
-    CRON -. "cloud watchdog\npings + push alerts" .-> ROBOT
+    ROBOT -- grava --> PG
+    CRON -. "vigia na nuvem\npings + alertas push" .-> ROBOT
 ```
 
-Design rule #1: **the browser never talks to the database.** Auth is a custom session-token scheme (Argon2id passwords); every read/write goes through a serverless function that re-checks role and team server-side. Hiding a button is cosmetics — the function is the gate.
+Regra de projeto nº 1: **o navegador nunca fala com o banco.** Auth é um esquema próprio de token de sessão (senhas em Argon2id); toda leitura/escrita passa por uma função serverless que re-checa papel e equipe no servidor. Esconder botão é cosmético — a função é o portão.
 
-Design rule #2: **one repo, one deploy.** TypeScript and Python functions live side by side; a `git push` to main ships frontend, backend, crons and headers atomically.
+Regra de projeto nº 2: **um repo, um deploy.** Funções TypeScript e Python convivem lado a lado; um `git push` na main sobe frontend, backend, crons e headers atomicamente.
 
-## The AI engineering (the interesting part)
+## A engenharia de IA (a parte interessante)
 
-### 1. Court-diary classification — Claude Opus + a deterministic deadline engine
+### 1. Classificação do diário oficial — Claude Opus + motor determinístico de prazos
 
-Twice a day, a Python function captures every publication addressed to the firm from the official court diary. Each one goes through Opus with a **structured-extraction prompt** that returns strict JSON:
+Duas vezes ao dia, uma função Python captura toda publicação endereçada ao escritório no diário oficial. Cada uma passa pelo Opus com um **prompt de extração estruturada** que retorna JSON estrito:
 
 ```
-rito · court level · decision type · does it demand action from the firm?
-is it a hearing? · literal deadline written in the text · topic summary
-which party is our client · confidence 0..1 · needs_human_review
+rito · instância · tipo de decisão · exige ação do escritório?
+é audiência? · prazo literal escrito no texto · resumo do tema
+qual parte é nosso cliente · confiança 0..1 · precisa_revisao
 ```
 
-The key decision: **the LLM never computes deadlines.** Brazilian procedural deadlines are calendar math with rules (business days, rito-dependent counts, ED-first strategies) — that's handled by a deterministic Python engine **validated against the firm's own answer-key spreadsheet**. The model only extracts what code can't parse from free-form legal prose. See [`excerpts/docket_classifier.py`](./excerpts/docket_classifier.py).
+A decisão-chave: **o LLM nunca calcula prazo.** Prazo processual brasileiro é matemática de calendário com regras (dias úteis, contagens por rito, estratégia de ED primeiro) — isso fica num motor Python determinístico **validado contra o gabarito real do escritório**. O modelo só extrai o que código não consegue interpretar da prosa jurídica livre. Ver [`excerpts/docket_classifier.py`](./excerpts/docket_classifier.py).
 
-The prompt is not generic: it encodes the firm's actual operating doctrine (e.g. *"an order to pay is the client's decision, not a lawyer's filing — classify as internal validation even when there's a deadline"*). When the model misclassifies, the fix goes into the prompt the way a correction goes into a junior analyst's manual.
+O prompt não é genérico: ele codifica a doutrina operacional real do escritório (ex.: *"intimação para pagar é decisão do cliente, não peça do advogado — classifique como validação interna mesmo havendo prazo"*). Quando o modelo erra, a correção entra no prompt como entraria no manual de um analista júnior.
 
-**Human-in-the-loop by design:** nothing becomes a tracked deadline without a person clicking *Register* — and nothing gets discarded without a team-leader approval. The AI proposes; the workflow disposes.
+**Human-in-the-loop por design:** nada vira prazo rastreado sem alguém clicar em *Cadastrar* — e nada é descartado sem aprovação do líder da equipe. A IA propõe; o fluxo dispõe.
 
-### 2. Docket analysis — Claude Haiku reading raw court files
+### 2. Análise de autos — Claude Haiku lendo os PDFs do processo
 
-The resident robot logs into the labor-court system with a hardware certificate (Playwright + Windows UI automation + TOTP), pulls each case's **timeline and the actual PDFs** from the authenticated API, and sends them to Haiku as native document blocks — no OCR pipeline, no text extraction step.
+O robô residente loga no PJe com certificado físico (Playwright + automação de UI do Windows + TOTP), puxa a **timeline e os PDFs reais** de cada processo pela API autenticada, e envia ao Haiku como document blocks nativos — sem pipeline de OCR, sem etapa de extração de texto.
 
-The system prompt is a hand-written **analyst manual** — a method of 7 questions the model applies as internal reasoning, forbidden from showing in the output. The output contract is fixed: a severity label (**ACT / LOOK / RECORD / ROUTINE**), a one-paragraph case summary, and — only when action is needed — a structured action card. See [`excerpts/docket_analyst.py`](./excerpts/docket_analyst.py).
+O system prompt é um **manual de analista** escrito à mão — um método de 7 perguntas que o modelo aplica como raciocínio interno, proibido de aparecer na saída. O contrato de saída é fixo: etiqueta de gravidade (**AGIR / OLHAR / REGISTRO / ROTINA**), resumo do processo em um parágrafo e — só quando exige ação — uma ficha estruturada. Ver [`excerpts/docket_analyst.py`](./excerpts/docket_analyst.py).
 
-**Model tiering by cost of error:** Opus for the classification that creates legal deadlines (low volume, catastrophic miss cost), Haiku for high-volume docket reading (a bad summary is annoying, not dangerous). Same platform, two price points, chosen deliberately.
+**Tiering de modelo pelo custo do erro:** Opus para a classificação que cria prazos legais (volume baixo, custo de erro catastrófico), Haiku para leitura de autos em volume (um resumo ruim é chato, não perigoso). Mesma plataforma, dois preços, escolhidos de propósito.
 
-**Epilogue — shipped, measured, retired.** This was the hardest engineering in the project (hardware certificate login, WAF-imposed throttling, crash-safe state on a machine that gets unplugged) and it worked. But the weekly coverage report kept saying the quiet part out loud: the robot could only reach ~39% of the portfolio — the rest lived in other court systems or behind pending bar registrations — so the legacy data provider could never be turned off. Once the need it served had passed, I decommissioned it rather than pay the operational cost of two overlapping sources indefinitely. Retiring a working pipeline because the data says so is as much AI engineering as shipping it.
+**Epílogo — entregue, medido, aposentado.** Essa foi a engenharia mais difícil do projeto (login com certificado físico, throttling imposto pelo WAF, estado à prova de queda numa máquina que é desligada da tomada) — e funcionou. Mas o relatório semanal de cobertura repetia a verdade inconveniente: o robô só alcançava ~39% da carteira — o resto vivia em outros tribunais ou atrás de habilitações pendentes na OAB — então o fornecedor legado de dados nunca poderia ser desligado. Quando a necessidade que ele atendia passou, eu o desativei em vez de pagar indefinidamente o custo operacional de duas fontes sobrepostas. Aposentar um pipeline que funciona porque os dados mandam é tão engenharia de IA quanto entregá-lo.
 
-### 3. Operating LLMs in production — what actually broke
+### 3. Operar LLM em produção — o que quebrou de verdade
 
-The parts you only learn by running this for months:
+As partes que só se aprendem rodando isso por meses:
 
-- **Response-shape drift.** A batch-summary integration silently changed its payload shape; the parser started returning empty. Fix: defensive parsing + a searchable log marker for "response didn't match", so the next drift is a log query away, not a mystery.
-- **Ordering starvation.** An hourly capture job ordered ascending with a result limit — once the backlog outgrew the limit, *the current day never arrived*. Classic pagination bug, but with an LLM pipeline downstream it looks like "the AI stopped working". Fix: descending order + bigger window.
-- **Anchor on event time, not capture time.** Summaries were being dated by when the robot *saw* them, not when they *happened* — wrong day buckets in every report. Backfilled 35 rows.
-- **The machine turns off.** The robot runs on a mini PC in an office. Its alert-capture window is **adaptive** — sized by the gap since the last successful run — so a power cut loses nothing. A cloud watchdog cron checks its heartbeat hourly and pushes an alert if it goes quiet — see [`excerpts/robot_watchdog.ts`](./excerpts/robot_watchdog.ts).
-- **The source bans you.** The court's WAF rate-bans burst traffic; captures are throttled and spread across three staggered loops (`:00` inbox / `:30` drip / `:45` alert-triggered).
-- **Know your coverage.** The robot covered 39% of the portfolio (the rest was other courts or pending bar registrations) — measured by a weekly coverage report, which is why the legacy data provider was never turned off, and ultimately what informed the decision to retire the robot. If you don't measure coverage, you don't have a pipeline, you have a demo.
+- **Drift no formato da resposta.** Uma integração de resumo em lote mudou o shape do payload em silêncio; o parser passou a devolver vazio. Correção: parse defensivo + marcador de log pesquisável para "resposta não bateu" — o próximo drift é uma busca no log, não um mistério.
+- **Inanição por ordenação.** Um job horário de captura ordenava ascendente com limite de resultados — quando o backlog cresceu além do limite, *o dia atual nunca chegava*. Bug clássico de paginação, mas com um pipeline de IA na jusante parece que "a IA parou de funcionar". Correção: ordem descendente + janela maior.
+- **Ancorar no tempo do evento, não da captura.** Resumos eram datados por quando o robô os *viu*, não por quando *aconteceram* — balde de dia errado em todo relatório. Backfill de 35 linhas.
+- **A máquina desliga.** O robô roda num mini PC de escritório. A janela de captura de alertas é **adaptativa** — dimensionada pelo intervalo desde a última execução bem-sucedida — então queda de energia não perde nada. Um cron vigia na nuvem checa o heartbeat de hora em hora e dispara push se ele silenciar — ver [`excerpts/robot_watchdog.ts`](./excerpts/robot_watchdog.ts).
+- **A fonte te bane.** O WAF do tribunal bane rajadas; as capturas são throttled e distribuídas em três laços defasados (`:00` caixa / `:30` gotas / `:45` gatilho por alerta).
+- **Conheça sua cobertura.** O robô cobria 39% da carteira (o resto era outros tribunais ou habilitação pendente na OAB) — medido por relatório semanal de cobertura, que é por que o fornecedor legado nunca pôde ser desligado, e no fim o que embasou a decisão de aposentar o robô. Se você não mede cobertura, não tem um pipeline — tem uma demo.
 
-## Engineering highlights beyond AI
+## Destaques de engenharia além da IA
 
-- **PWA auto-update in 3 layers** — after every deploy, every open tab updates itself politely (idle/hidden-tab reload, route preserved). Nobody at the firm has ever been told to "clear cache".
-- **Self-hosted web push** (VAPID, no Firebase): deadline alerts, controllership digests, robot watchdog alerts.
-- **Soft-delete audit** — deletes move rows to mirror `exc_*` tables; nothing is ever lost, mass-delete is restricted to one admin.
-- **Serverless Python with real constraints** — the monthly report generator hit the 300 s function limit rebuilding Drive credentials per client; caching them brought it down, and `maxDuration: 800` covers the tail.
-- **Security posture** — RLS locked down so the public anon key can do nothing; verified by an actual pentest of my own API. Argon2id-only password storage (legacy SHA-256 column dropped after migration).
+- **Auto-update do PWA em 3 camadas** — depois de cada deploy, toda aba aberta se atualiza educadamente (reload em idle/aba oculta, rota preservada). Ninguém no escritório jamais ouviu "limpa o cache".
+- **Web push self-hosted** (VAPID, sem Firebase): alertas de prazo, resumos da controladoria, alertas do vigia do robô.
+- **Auditoria por soft delete** — exclusões movem linhas para tabelas espelho `exc_*`; nada se perde, exclusão em massa restrita a um admin.
+- **Python serverless com restrições reais** — o gerador de relatório mensal estourava o limite de 300 s reconstruindo credenciais do Drive por cliente; cache resolveu, e `maxDuration: 800` cobre a cauda.
+- **Postura de segurança** — RLS travada de forma que a chave pública anon não consegue nada; verificado com pentest de verdade na minha própria API. Senhas só em Argon2id (coluna SHA-256 legada dropada após a migração).
 
 ## Screenshots
 
-*All data in the screenshots is fictional (redacted from production captures).*
+*Todos os dados nas capturas são fictícios (censurados a partir de telas de produção).*
 
-**Controllership — daily control view**: every publication captured from the official court diary, classified by Claude Opus, and tracked through the human-in-the-loop workflow (registered / discard pending leader approval):
+**Controladoria — visão Controle do dia**: toda publicação capturada do diário oficial, classificada pelo Claude Opus e acompanhada no fluxo human-in-the-loop (cadastrada / descarte aguardando aprovação do líder):
 
-![Controllership control view](./docs/img/controladoria-controle.png)
+![Controladoria visão Controle](./docs/img/controladoria-controle.png)
 
-**Deadline desk** — the litigation board: two-layer traffic lights (internal deadline vs. fatal legal deadline), saved filters, mass actions, per-team views:
+**Mesa de Prazos** — o quadro contencioso: faróis em duas camadas (prazo interno vs. prazo fatal legal), filtros salvos, ações em massa, visões por equipe:
 
-![Deadline desk](./docs/img/mesa-prazos.png)
+![Mesa de Prazos](./docs/img/mesa-prazos.png)
 
-**Client portal** — each client company gets its own white-labeled dashboard (also shipped as the native iOS app):
+**Portal do Cliente** — cada empresa cliente tem seu dashboard white-label (também entregue como app iOS nativo):
 
-![Client portal](./docs/img/portal-cliente.png)
+![Portal do Cliente](./docs/img/portal-cliente.png)
 
-**Home** — last month's closed numbers per activity type (done vs. late), plus what's due today and this week:
+**Início** — os números fechados do mês anterior por tipo de atividade (concluídas × fora do prazo), mais o que vence hoje e nesta semana:
 
-![Home](./docs/img/home-cards.png)
+![Início](./docs/img/home-cards.png)
 
 ## Stack
 
-React 19 · TypeScript · Vite 7 · Tailwind · PWA (custom Service Worker) · Vercel Functions (Node + Python) · Supabase Postgres · Anthropic API (Claude Opus / Haiku) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
+React 19 · TypeScript · Vite 7 · Tailwind · PWA (Service Worker custom) · Vercel Functions (Node + Python) · Supabase Postgres · API Anthropic (Claude Opus / Haiku) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
 
 ---
 
-*The full source is private (it operates a live legal practice). Excerpts here are sanitized: identities removed, examples fictional, logic real. Happy to walk through any part of it in depth — [open an issue](../../issues) or reach out.*
+*O código completo é privado (ele opera um escritório de advocacia real). Os trechos aqui são sanitizados: identidades removidas, exemplos fictícios, lógica real. Fico feliz em detalhar qualquer parte — [abra uma issue](../../issues) ou me chame.*
