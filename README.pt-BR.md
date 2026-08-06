@@ -14,7 +14,7 @@ Este é um **repositório de case study**: o produto é proprietário e o códig
 |---|---|
 | Em produção | desde maio/2026, sem time de ops — só eu |
 | Processos acompanhados | ~1.060 em toda a carteira do escritório |
-| Pipelines de IA em produção | 3 (classificação do diário oficial · análise de autos · resumo em lote) |
+| Pipelines de IA entregues em produção | 3 — classificação do diário oficial e resumo em lote seguem rodando; o robô de autos foi aposentado deliberadamente (história abaixo) |
 | Funções serverless | ~40 (TypeScript + Python, mesmo repo, mesmo deploy) |
 | Jobs agendados | 16 crons na Vercel (capturas, relatórios, pushes, vigias) |
 | Clientes | PWA mobile-first + app iOS nativo na App Store |
@@ -25,7 +25,7 @@ O escritório vive e morre por **prazos judiciais**. A plataforma roda essa oper
 
 - **Mesas de prazos** — quadros de atividades contenciosas e consultivas com sistema de faróis guiado por duas camadas de prazo (o prazo interno do escritório vs. o prazo fatal legal)
 - **Controladoria do diário oficial (IA)** — captura automaticamente toda publicação endereçada ao escritório no DJEN, o **Claude Opus** lê e classifica cada uma, o prazo legal é calculado deterministicamente, e vira atividade rastreada em 1 clique
-- **Robô judicial (IA)** — robô residente que loga no PJe com certificado A3 (smartcard), lê os autos direto da fonte primária, e o **Claude Haiku** produz um briefing de analista por movimentação — rotulado por gravidade: *agir / olhar / registro / rotina*
+- **Robô judicial (IA)** — robô residente que logava no PJe com certificado A3 (smartcard), lia os autos direto da fonte primária, e o **Claude Haiku** produzia um briefing de analista por movimentação — rotulado por gravidade: *agir / olhar / registro / rotina*. Entregue, operado e depois aposentado deliberadamente ([a história completa](#2-análise-de-autos--claude-haiku-lendo-os-pdfs-do-processo))
 - **Portal do cliente** — cada empresa cliente tem seu próprio dashboard (white-label, incluindo o app iOS)
 - E mais: filas de aprovação em duas etapas, CRM de leads, relatórios mensais `.docx` por cliente com upload no Google Drive, relatórios diários por equipe via e-mail, web push self-hosted, trilha de auditoria completa com soft delete, sync 1-way com Trello.
 
@@ -49,7 +49,7 @@ flowchart LR
         ANT["API Anthropic\nOpus · Haiku"]
         MISC["Trello · Google Drive\nSMTP · Web Push (VAPID)"]
     end
-    ROBOT["Robô residente (mini PC)\nPlaywright + certificado A3\nlê os autos do PJe na fonte"]
+    ROBOT["Robô residente (mini PC)\nPlaywright + certificado A3\nlia os autos do PJe na fonte\n(hoje aposentado)"]
 
     SPA -- "token de sessão (Bearer)" --> FN
     iOS --> FN
@@ -93,6 +93,8 @@ O system prompt é um **manual de analista** escrito à mão — um método de 7
 
 **Tiering de modelo pelo custo do erro:** Opus para a classificação que cria prazos legais (volume baixo, custo de erro catastrófico), Haiku para leitura de autos em volume (um resumo ruim é chato, não perigoso). Mesma plataforma, dois preços, escolhidos de propósito.
 
+**Epílogo — entregue, medido, aposentado.** Essa foi a engenharia mais difícil do projeto (login com certificado físico, throttling imposto pelo WAF, estado à prova de queda numa máquina que é desligada da tomada) — e funcionou. Mas o relatório semanal de cobertura repetia a verdade inconveniente: o robô só alcançava ~39% da carteira — o resto vivia em outros tribunais ou atrás de habilitações pendentes na OAB — então o fornecedor legado de dados nunca poderia ser desligado. Quando a necessidade que ele atendia passou, eu o desativei em vez de pagar indefinidamente o custo operacional de duas fontes sobrepostas. Aposentar um pipeline que funciona porque os dados mandam é tão engenharia de IA quanto entregá-lo.
+
 ### 3. Operar LLM em produção — o que quebrou de verdade
 
 As partes que só se aprendem rodando isso por meses:
@@ -102,7 +104,7 @@ As partes que só se aprendem rodando isso por meses:
 - **Ancorar no tempo do evento, não da captura.** Resumos eram datados por quando o robô os *viu*, não por quando *aconteceram* — balde de dia errado em todo relatório. Backfill de 35 linhas.
 - **A máquina desliga.** O robô roda num mini PC de escritório. A janela de captura de alertas é **adaptativa** — dimensionada pelo intervalo desde a última execução bem-sucedida — então queda de energia não perde nada. Um cron vigia na nuvem checa o heartbeat de hora em hora e dispara push se ele silenciar — ver [`excerpts/robot_watchdog.ts`](./excerpts/robot_watchdog.ts).
 - **A fonte te bane.** O WAF do tribunal bane rajadas; as capturas são throttled e distribuídas em três laços defasados (`:00` caixa / `:30` gotas / `:45` gatilho por alerta).
-- **Conheça sua cobertura.** O robô cobre 39% da carteira (o resto é outros tribunais ou habilitação pendente na OAB) — medido por relatório semanal de cobertura, que é exatamente por que o fornecedor legado de dados ainda não pode ser desligado. Se você não mede cobertura, não tem um pipeline — tem uma demo.
+- **Conheça sua cobertura.** O robô cobria 39% da carteira (o resto era outros tribunais ou habilitação pendente na OAB) — medido por relatório semanal de cobertura, que é por que o fornecedor legado nunca pôde ser desligado, e no fim o que embasou a decisão de aposentar o robô. Se você não mede cobertura, não tem um pipeline — tem uma demo.
 
 ## Destaques de engenharia além da IA
 
@@ -116,6 +118,10 @@ As partes que só se aprendem rodando isso por meses:
 
 *Todos os dados nas capturas são fictícios (censurados a partir de telas de produção).*
 
+**Controladoria — visão Controle do dia**: toda publicação capturada do diário oficial, classificada pelo Claude Opus e acompanhada no fluxo human-in-the-loop (cadastrada / descarte aguardando aprovação do líder):
+
+![Controladoria visão Controle](./docs/img/controladoria-controle.png)
+
 **Mesa de Prazos** — o quadro contencioso: faróis em duas camadas (prazo interno vs. prazo fatal legal), filtros salvos, ações em massa, visões por equipe:
 
 ![Mesa de Prazos](./docs/img/mesa-prazos.png)
@@ -123,6 +129,10 @@ As partes que só se aprendem rodando isso por meses:
 **Portal do Cliente** — cada empresa cliente tem seu dashboard white-label (também entregue como app iOS nativo):
 
 ![Portal do Cliente](./docs/img/portal-cliente.png)
+
+**Início** — os números fechados do mês anterior por tipo de atividade (concluídas × fora do prazo), mais o que vence hoje e nesta semana:
+
+![Início](./docs/img/home-cards.png)
 
 ## Stack
 

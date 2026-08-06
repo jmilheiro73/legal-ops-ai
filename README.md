@@ -14,7 +14,7 @@ This is a **case study repository**: the product is proprietary and the full sou
 |---|---|
 | In production | since May 2026, no dedicated ops team — just me |
 | Lawsuits tracked | ~1,060 across the firm's portfolio |
-| AI pipelines in production | 3 (court-diary classification · docket analysis · batch summarization) |
+| AI pipelines shipped to production | 3 — court-diary classification and batch summarization still running; the docket robot was deliberately retired (its story below) |
 | Serverless functions | ~40 (TypeScript + Python, same repo, same deploy) |
 | Scheduled jobs | 16 Vercel crons (captures, reports, pushes, watchdogs) |
 | Clients | mobile-first PWA + native iOS app on the App Store |
@@ -25,7 +25,7 @@ The firm lives and dies by **court deadlines**. The platform runs that entire op
 
 - **Deadline desks** — litigation and consulting activity boards with a traffic-light system driven by two deadline layers (the firm's internal deadline vs. the fatal legal one)
 - **Court-diary controllership (AI)** — automatically captures every publication addressed to the firm from Brazil's official court diary (DJEN), has **Claude Opus** read and classify each one, computes the legal deadline deterministically, and turns it into a tracked activity in one click
-- **Court robot (AI)** — a resident robot that logs into the labor-court system (PJe) with an A3 smartcard certificate, reads case dockets from the primary source, and has **Claude Haiku** produce an analyst-grade briefing per movement — severity-labeled *act / look / record / routine*
+- **Court robot (AI)** — a resident robot that logged into the labor-court system (PJe) with an A3 smartcard certificate, read case dockets from the primary source, and had **Claude Haiku** produce an analyst-grade briefing per movement — severity-labeled *act / look / record / routine*. Shipped, operated, and later deliberately retired ([the full story](#2-docket-analysis--claude-haiku-reading-raw-court-files))
 - **Client portal** — each client company gets its own dashboard (white-labeled, iOS app included)
 - Plus: two-step approval queues, a leads CRM, monthly `.docx` reports per client uploaded to Google Drive, daily team reports by e-mail, self-hosted web push, full audit trail with soft deletes, 1-way Trello sync.
 
@@ -49,7 +49,7 @@ flowchart LR
         ANT["Anthropic API\nOpus · Haiku"]
         MISC["Trello · Google Drive\nSMTP · Web Push (VAPID)"]
     end
-    ROBOT["Resident robot (mini PC)\nPlaywright + smartcard cert\nreads PJe dockets at the source"]
+    ROBOT["Resident robot (mini PC)\nPlaywright + smartcard cert\nread PJe dockets at the source\n(now retired)"]
 
     SPA -- "Bearer session token" --> FN
     iOS --> FN
@@ -93,6 +93,8 @@ The system prompt is a hand-written **analyst manual** — a method of 7 questio
 
 **Model tiering by cost of error:** Opus for the classification that creates legal deadlines (low volume, catastrophic miss cost), Haiku for high-volume docket reading (a bad summary is annoying, not dangerous). Same platform, two price points, chosen deliberately.
 
+**Epilogue — shipped, measured, retired.** This was the hardest engineering in the project (hardware certificate login, WAF-imposed throttling, crash-safe state on a machine that gets unplugged) and it worked. But the weekly coverage report kept saying the quiet part out loud: the robot could only reach ~39% of the portfolio — the rest lived in other court systems or behind pending bar registrations — so the legacy data provider could never be turned off. Once the need it served had passed, I decommissioned it rather than pay the operational cost of two overlapping sources indefinitely. Retiring a working pipeline because the data says so is as much AI engineering as shipping it.
+
 ### 3. Operating LLMs in production — what actually broke
 
 The parts you only learn by running this for months:
@@ -102,7 +104,7 @@ The parts you only learn by running this for months:
 - **Anchor on event time, not capture time.** Summaries were being dated by when the robot *saw* them, not when they *happened* — wrong day buckets in every report. Backfilled 35 rows.
 - **The machine turns off.** The robot runs on a mini PC in an office. Its alert-capture window is **adaptive** — sized by the gap since the last successful run — so a power cut loses nothing. A cloud watchdog cron checks its heartbeat hourly and pushes an alert if it goes quiet — see [`excerpts/robot_watchdog.ts`](./excerpts/robot_watchdog.ts).
 - **The source bans you.** The court's WAF rate-bans burst traffic; captures are throttled and spread across three staggered loops (`:00` inbox / `:30` drip / `:45` alert-triggered).
-- **Know your coverage.** The robot covers 39% of the portfolio (the rest is other courts or pending bar registrations) — measured by a weekly coverage report, which is exactly why the legacy data provider can't be turned off yet. If you don't measure coverage, you don't have a pipeline, you have a demo.
+- **Know your coverage.** The robot covered 39% of the portfolio (the rest was other courts or pending bar registrations) — measured by a weekly coverage report, which is why the legacy data provider was never turned off, and ultimately what informed the decision to retire the robot. If you don't measure coverage, you don't have a pipeline, you have a demo.
 
 ## Engineering highlights beyond AI
 
@@ -116,6 +118,10 @@ The parts you only learn by running this for months:
 
 *All data in the screenshots is fictional (redacted from production captures).*
 
+**Controllership — daily control view**: every publication captured from the official court diary, classified by Claude Opus, and tracked through the human-in-the-loop workflow (registered / discard pending leader approval):
+
+![Controllership control view](./docs/img/controladoria-controle.png)
+
 **Deadline desk** — the litigation board: two-layer traffic lights (internal deadline vs. fatal legal deadline), saved filters, mass actions, per-team views:
 
 ![Deadline desk](./docs/img/mesa-prazos.png)
@@ -123,6 +129,10 @@ The parts you only learn by running this for months:
 **Client portal** — each client company gets its own white-labeled dashboard (also shipped as the native iOS app):
 
 ![Client portal](./docs/img/portal-cliente.png)
+
+**Home** — last month's closed numbers per activity type (done vs. late), plus what's due today and this week:
+
+![Home](./docs/img/home-cards.png)
 
 ## Stack
 
