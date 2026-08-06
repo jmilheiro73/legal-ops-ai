@@ -114,7 +114,15 @@ The parts you only learn by running this for months:
 
 ## Screenshots
 
-*(coming — UI screenshots with fictional data)*
+*All data in the screenshots is fictional (redacted from production captures).*
+
+**Deadline desk** — the litigation board: two-layer traffic lights (internal deadline vs. fatal legal deadline), saved filters, mass actions, per-team views:
+
+![Deadline desk](./docs/img/mesa-prazos.png)
+
+**Client portal** — each client company gets its own white-labeled dashboard (also shipped as the native iOS app):
+
+![Client portal](./docs/img/portal-cliente.png)
 
 ## Stack
 

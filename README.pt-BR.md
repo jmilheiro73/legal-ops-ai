@@ -114,7 +114,15 @@ As partes que só se aprendem rodando isso por meses:
 
 ## Screenshots
 
-*(em breve — capturas da UI com dados fictícios)*
+*Todos os dados nas capturas são fictícios (censurados a partir de telas de produção).*
+
+**Mesa de Prazos** — o quadro contencioso: faróis em duas camadas (prazo interno vs. prazo fatal legal), filtros salvos, ações em massa, visões por equipe:
+
+![Mesa de Prazos](./docs/img/mesa-prazos.png)
+
+**Portal do Cliente** — cada empresa cliente tem seu dashboard white-label (também entregue como app iOS nativo):
+
+![Portal do Cliente](./docs/img/portal-cliente.png)
 
 ## Stack
 
