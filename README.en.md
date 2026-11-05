@@ -34,8 +34,8 @@ This is a **case study repository**: the product is proprietary and the full sou
 The firm lives and dies by **court deadlines**. The platform runs that entire operation:
 
 - **Deadline desks** — litigation and consulting activity boards with a traffic-light system driven by two deadline layers (the firm's internal deadline vs. the fatal legal one)
-- **Court-diary controllership (AI)** — automatically captures every publication addressed to the firm from Brazil's official court diary (DJEN), has **a large LLM** read and classify each one, computes the legal deadline deterministically, and turns it into a tracked activity in one click
-- **Court robot (AI)** — a resident robot that logged into the labor-court system (PJe) with an A3 smartcard certificate, read case dockets from the primary source, and had **a small, fast LLM** produce an analyst-grade briefing per movement — severity-labeled *act / look / record / routine*. Shipped, operated, and later deliberately retired ([the full story](#3-docket-analysis--a-small-llm-reading-raw-court-files))
+- **Court-diary controllership (AI)** — automatically captures every publication addressed to the firm from Brazil's official court diary (DJEN), has **Claude Opus** read and classify each one, computes the legal deadline deterministically, and turns it into a tracked activity in one click
+- **Court robot (AI)** — a resident robot that logged into the labor-court system (PJe) with an A3 smartcard certificate, read case dockets from the primary source, and had **Claude Haiku** produce an analyst-grade briefing per movement — severity-labeled *act / look / record / routine*. Shipped, operated, and later deliberately retired ([the full story](#3-docket-analysis--claude-haiku-reading-raw-court-files))
 - **Client portal** — each client company gets its own dashboard (white-labeled, iOS app included)
 - Plus: two-step approval queues, a leads CRM, monthly `.docx` reports per client uploaded to Google Drive, daily team reports by e-mail, self-hosted web push, full audit trail with soft deletes, 1-way Trello sync.
 
@@ -56,7 +56,7 @@ flowchart LR
     end
     subgraph External
         DJEN["DJEN (official court diary)"]
-        ANT["LLM API\nthree model tiers"]
+        ANT["Anthropic API\nOpus · Sonnet · Haiku"]
         MISC["Trello · Google Drive\nSMTP · Web Push (VAPID)"]
     end
     ROBOT["Resident robot (mini PC)\nPlaywright + smartcard cert\nread PJe dockets at the source\n(now retired)"]
@@ -79,9 +79,9 @@ Design rule #2: **one repo, one deploy.** TypeScript and Python functions live s
 
 ## The AI engineering (the interesting part)
 
-### 1. Court-diary classification — a large LLM + a deterministic deadline engine
+### 1. Court-diary classification — Claude Opus + a deterministic deadline engine
 
-Twice a day, a Python function captures every publication addressed to the firm from the official court diary. Each one goes through the large model with a **structured-extraction prompt** that returns strict JSON:
+Twice a day, a Python function captures every publication addressed to the firm from the official court diary. Each one goes through Opus with a **structured-extraction prompt** that returns strict JSON:
 
 ```
 rito · court level · decision type · does it demand action from the firm?
@@ -95,7 +95,7 @@ The prompt is not generic: it encodes the firm's actual operating doctrine (e.g.
 
 **Human-in-the-loop by design:** nothing becomes a tracked deadline without a person clicking *Register* — and nothing gets discarded without a team-leader approval. The AI proposes; the workflow disposes.
 
-### 2. Triage agent — an LLM with tools, measured before it was built
+### 2. Triage agent — Claude Sonnet with tools, measured before it was built
 
 In production since September 2026, layered on top of the previous pipeline. The classifier reads each publication **in isolation**; the agent reads it **in the context of its case**. Twenty minutes after every capture, it checks the case record, the earlier publications on the same case, the activities already open on the deadline desk and the controllership spreadsheet, and hands the team a **ready-made proposal**: register (with the deadline already computed by the engine), dismiss (with the justification the team would write) or send to human review.
 
@@ -113,10 +113,10 @@ The dismissal reasons came from the measurement too: the schema's closed list is
 
 ```mermaid
 flowchart TD
-    CAP["DJEN capture + classification (large LLM)\n07:00 · 23:00"] --> QUEUE[("Controllership queue\npending publication")]
+    CAP["DJEN capture + classification (Opus)\n07:00 · 23:00"] --> QUEUE[("Controllership queue\npending publication")]
     QUEUE -- "auxiliary cron\n07:20 · 23:20" --> LLM
     subgraph LOOP["Triage agent — manual loop, max 8 steps"]
-        LLM["Mid-size LLM\ncached system prompt"]
+        LLM["Claude Sonnet\ncached system prompt"]
         TOOLS["5 read-only tools (Postgres)\ncase record · history · open activities\nspreadsheet · calcular_prazos"]
         LLM -- "tool_use" --> TOOLS
         TOOLS -- "tool_result" --> LLM
@@ -131,7 +131,7 @@ flowchart TD
 
 **Design.**
 
-- **Mid-size LLM, manual tool-use loop.** Call the model → `tool_use` → execute → return `tool_result` → repeat, capped at **8 steps**. No SDK tool runner, no framework: more lines, but every decision stays visible. If a tool throws, the error goes back to the model as a `tool_result` with `is_error` and the run doesn't crash.
+- **Claude Sonnet, manual tool-use loop.** Call the model → `tool_use` → execute → return `tool_result` → repeat, capped at **8 steps**. No SDK tool runner, no framework: more lines, but every decision stays visible. If a tool throws, the error goes back to the model as a `tool_result` with `is_error` and the run doesn't crash.
 - **Strict, read-only tools.** The API guarantees the arguments arrive in the schema's shape. The agent writes nothing: the cron that calls it does the writing.
 - **Structured output enforced by the API, validated again on arrival.** The JSON Schema is generated from the Pydantic model and sent as the output format; the response goes through `Proposta.model_validate_json`. Every decision field is a closed `Literal`: if the model writes `"cadastro"` instead of `"cadastrar"`, validation fails and the error is logged, instead of an unexpected value reaching the database. Field order is deliberate — reasoning first, confidence last.
 - **The deadline stays in code.** `calcular_prazos` takes the classification in the same schema as the final proposal and runs the existing engine. If the model changes its mind after computing, the code recomputes from the final classification.
@@ -187,13 +187,13 @@ class Proposta(BaseModel):
 
 Model, effort and agent version are script parameters: the same sample runs against another model or another prompt version, and the numbers stay comparable.
 
-### 3. Docket analysis — a small LLM reading raw court files
+### 3. Docket analysis — Claude Haiku reading raw court files
 
-The resident robot logs into the labor-court system with a hardware certificate (Playwright + Windows UI automation + TOTP), pulls each case's **timeline and the actual PDFs** from the authenticated API, and sends them to the small model as native document blocks — no OCR pipeline, no text extraction step.
+The resident robot logs into the labor-court system with a hardware certificate (Playwright + Windows UI automation + TOTP), pulls each case's **timeline and the actual PDFs** from the authenticated API, and sends them to Haiku as native document blocks — no OCR pipeline, no text extraction step.
 
 The system prompt is a hand-written **analyst manual** — a method of 7 questions the model applies as internal reasoning, forbidden from showing in the output. The output contract is fixed: a severity label (**ACT / LOOK / RECORD / ROUTINE**), a one-paragraph case summary, and — only when action is needed — a structured action card. See [`excerpts/docket_analyst.py`](./excerpts/docket_analyst.py).
 
-**Model tiering by cost of error:** The large model for the classification that creates legal deadlines (low volume, catastrophic miss cost), the small one for high-volume docket reading (a bad summary is annoying, not dangerous). Same platform, two price points, chosen deliberately.
+**Model tiering by cost of error:** Opus for the classification that creates legal deadlines (low volume, catastrophic miss cost), Haiku for high-volume docket reading (a bad summary is annoying, not dangerous). Same platform, two price points, chosen deliberately.
 
 **Epilogue — shipped, measured, retired.** This was the hardest engineering in the project (hardware certificate login, WAF-imposed throttling, crash-safe state on a machine that gets unplugged) and it worked. But the weekly coverage report kept saying the quiet part out loud: the robot could only reach ~39% of the portfolio — the rest lived in other court systems or behind pending bar registrations — so the legacy data provider could never be turned off. Once the need it served had passed, I decommissioned it rather than pay the operational cost of two overlapping sources indefinitely. Retiring a working pipeline because the data says so is as much AI engineering as shipping it.
 
@@ -220,7 +220,7 @@ The parts you only learn by running this for months:
 
 *All data in the screenshots is fictional (redacted from production captures).*
 
-**Controllership — daily control view**: every publication captured from the official court diary, classified by the LLM, and tracked through the human-in-the-loop workflow (registered / discard pending leader approval):
+**Controllership — daily control view**: every publication captured from the official court diary, classified by Claude Opus, and tracked through the human-in-the-loop workflow (registered / discard pending leader approval):
 
 ![Controllership control view](./docs/img/controladoria-controle.png)
 
@@ -238,7 +238,7 @@ The parts you only learn by running this for months:
 
 ## Stack
 
-React 19 · TypeScript · Vite 7 · Tailwind · PWA (custom Service Worker) · Vercel Functions (Node + Python) · Supabase Postgres · LLM API (three model tiers) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
+React 19 · TypeScript · Vite 7 · Tailwind · PWA (custom Service Worker) · Vercel Functions (Node + Python) · Supabase Postgres · Anthropic API (Claude Opus / Sonnet / Haiku) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
 
 ---
 

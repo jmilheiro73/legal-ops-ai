@@ -1,7 +1,7 @@
 # =============================================================================
 # EXCERPT — sanitized & trimmed from the production triage agent.
 # One court-diary publication in, one typed proposal out: a manual tool-use
-# loop over a mid-size LLM, five read-only tools, a JSON Schema generated from
+# loop over Claude Sonnet, five read-only tools, a JSON Schema generated from
 # Pydantic as the output format, and the deadline left to deterministic code.
 # Identities replaced: one client-specific dismissal reason renamed to
 # "cliente_fora_do_fluxo", and the firm-branded name of its internal deadline
@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field, ValidationError
 # número CNJ, montar_prompt_sistema (instruções de triagem + as regras do
 # classificador, reaproveitadas) …
 
-MODELO_PADRAO = "mid-size-model"
+MODELO_PADRAO = "claude-sonnet-5"
 MAX_PASSOS = 8            # teto de rodadas de ferramenta por intimação
 MAX_TOKENS = 4096
 VERSAO_AGENTE = "2026-09-28.1"   # gravada em cada proposta: permite comparar versões
@@ -151,8 +151,8 @@ def triar(texto, *, numero_processo, data_publicacao, contexto_api=None, id_djen
     """corte_temporal (ISO, só na avaliação offline): as ferramentas enxergam apenas
     o que existia no banco ANTES desse instante — senão a intimação já decidida
     "vê" as atividades e satélites que ela mesma gerou e se acha duplicada."""
-    modelo = modelo or os.environ.get("LLM_MODEL_TRIAGEM", MODELO_PADRAO)
-    effort = effort or os.environ.get("LLM_EFFORT_TRIAGEM", "medium")
+    modelo = modelo or os.environ.get("ANTHROPIC_MODEL_TRIAGEM", MODELO_PADRAO)
+    effort = effort or os.environ.get("ANTHROPIC_EFFORT_TRIAGEM", "medium")
     # … trimmed: cliente da API, mapa nome -> função (as lambdas injetam o que o
     # modelo não sabe: id atual, data, corte_temporal), contadores de usage …
     tools = _definicoes_de_tools()
