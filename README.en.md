@@ -27,8 +27,6 @@ This is a **case study repository**: the product is proprietary and the full sou
 |---|---|
 | In production | since 2025, no dedicated ops team — just me |
 | AI pipelines shipped to production | 4 — court-diary classification, the triage agent and batch summarization still running; the docket robot was deliberately retired (its story below) |
-| Serverless functions | ~95 (TypeScript + Python, same repo, same deploy) |
-| Scheduled jobs | 25 Vercel crons (captures, triage, reports, pushes, syncs) |
 | Clients | mobile-first PWA + native iOS app on the App Store |
 
 ## What it does
@@ -50,8 +48,8 @@ flowchart LR
         iOS["iOS app (React Native/Expo)\nnative client area + team WebView"]
     end
     subgraph Vercel
-        FN["Serverless Functions\n~75 TypeScript + 21 Python"]
-        CRON["25 cron jobs\ncaptures · triage · reports"]
+        FN["Serverless Functions\nTypeScript + Python"]
+        CRON["Cron jobs\ncaptures · triage · reports"]
     end
     subgraph Data
         PG[("Supabase Postgres\nRLS locked · server-side authz only")]

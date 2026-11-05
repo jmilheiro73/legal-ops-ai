@@ -27,8 +27,6 @@ Este é um **repositório de case study**: o produto é proprietário e o códig
 |---|---|
 | Em produção | desde 2025, sem time de ops — só eu |
 | Pipelines de IA entregues em produção | 4 — classificação do diário oficial, Agente de Triagem e resumo em lote seguem rodando; o robô de autos foi aposentado deliberadamente (história abaixo) |
-| Funções serverless | ~95 (TypeScript + Python, mesmo repo, mesmo deploy) |
-| Jobs agendados | 25 crons na Vercel (capturas, triagem, relatórios, pushes, syncs) |
 | Clientes | PWA mobile-first + app iOS nativo na App Store |
 
 ## O que a plataforma faz
@@ -50,8 +48,8 @@ flowchart LR
         iOS["App iOS (React Native/Expo)\nárea do cliente nativa + WebView da equipe"]
     end
     subgraph Vercel
-        FN["Funções serverless\n~75 TypeScript + 21 Python"]
-        CRON["25 cron jobs\ncapturas · triagem · relatórios"]
+        FN["Funções serverless\nTypeScript + Python"]
+        CRON["Cron jobs\ncapturas · triagem · relatórios"]
     end
     subgraph Dados
         PG[("Supabase Postgres\nRLS travada · autorização só no servidor")]
