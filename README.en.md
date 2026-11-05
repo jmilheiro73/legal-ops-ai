@@ -2,6 +2,19 @@
 
 > **[Versão em português →](./README.md)**
 
+<table>
+  <tr>
+    <td><b>System tour</b><br><sub>Real UI, fictional data</sub></td>
+    <td><b>How the triage works</b><br><sub>Publication → LLM → deadline in code → one click</sub></td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-en.mp4"><img src="docs/gif/gx-tour-en.gif" alt="Portal GX system tour"></a></td>
+    <td><a href="https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triage-en.mp4"><img src="docs/gif/gx-motion-en.gif" alt="How the Portal GX triage works"></a></td>
+  </tr>
+</table>
+
+▶ Narrated videos: tour [EN](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-en.mp4) · [PT](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-pt.mp4) · triage [EN](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triage-en.mp4) · [PT](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triagem-pt.mp4)
+
 A legal operations platform I designed, built and operate solo for a multi-team law firm in Brazil. In production since **2025**, used daily by the whole firm — lawyers, controllers, customer success and the firm's own clients.
 
 This is a **case study repository**: the product is proprietary and the full source stays private. What you'll find here is the architecture, the engineering decisions, sanitized code excerpts from the AI pipelines, and the lessons learned from operating LLMs in production. All names, parties and case numbers in examples are fictional.

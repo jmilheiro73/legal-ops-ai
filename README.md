@@ -2,6 +2,19 @@
 
 > **[English version →](./README.en.md)**
 
+<table>
+  <tr>
+    <td><b>Tour pelo sistema</b><br><sub>Tela real, dados fictícios</sub></td>
+    <td><b>Como a triagem funciona</b><br><sub>Intimação → LLM → prazo em código → um clique</sub></td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-en.mp4"><img src="docs/gif/gx-tour-en.gif" alt="Portal GX system tour"></a></td>
+    <td><a href="https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triage-en.mp4"><img src="docs/gif/gx-motion-en.gif" alt="How the Portal GX triage works"></a></td>
+  </tr>
+</table>
+
+▶ Vídeos narrados: tour [EN](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-en.mp4) · [PT](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-tour-pt.mp4) · triagem [EN](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triage-en.mp4) · [PT](https://github.com/jmilheiro73/legal-ops-ai/releases/download/videos/gx-triagem-pt.mp4)
+
 Plataforma de operações jurídicas que eu projetei, construí e opero sozinho para um escritório de advocacia multi-equipes no Brasil. Em produção desde **2025**, usada diariamente pelo escritório inteiro — advogados, controladoria, sucesso do cliente e os próprios clientes do escritório.
 
 Este é um **repositório de case study**: o produto é proprietário e o código completo permanece privado. O que você encontra aqui é a arquitetura, as decisões de engenharia, trechos de código sanitizados dos pipelines de IA e as lições de operar LLMs em produção. Todos os nomes, partes e números de processo nos exemplos são fictícios.
