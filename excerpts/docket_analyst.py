@@ -1,13 +1,13 @@
 # =============================================================================
 # EXCERPT — sanitized & trimmed from the court robot's analysis step.
-# This is the piece that reads a lawsuit's actual PDFs with Claude (native
+# This is the piece that reads a lawsuit's actual PDFs with an LLM (native
 # document blocks, no OCR) guided by a hand-written analyst manual.
 # Comments are in Portuguese (the system's working language).
 # =============================================================================
 
 #!/usr/bin/env python3
 """
-Analisa os andamentos de um processo trabalhista com Claude, seguindo o
+Analisa os andamentos de um processo trabalhista com um LLM, seguindo o
 MANUAL_ANALISE_ANDAMENTOS.md (o "conhecimento do analista").
 
 Fonte dos dados = o próprio tribunal (API autenticada do PJe), não um agregador.
@@ -19,7 +19,7 @@ Entrada:
 Saida:
   - CARD (tradução, sempre) + FICHA (quando AGIR/decisão) em Markdown
 
-A chave vem de .env (ANTHROPIC_API_KEY). NÃO fica no código.
+A chave vem de .env (LLM_API_KEY). NÃO fica no código.
 
 NOTA DE COLETA (aprendida em produção): a API do tribunal só libera a timeline
 e o conteúdo dos documentos ENQUANTO o processo está "aberto" no visualizador.
@@ -32,8 +32,8 @@ import glob
 import base64
 import urllib.request
 
-# Tiering por env var: Haiku pro volume; Sonnet/Opus quando a análise pesa mais.
-MODELO = os.environ.get("ANTHROPIC_MODEL_ANDAMENTOS", "claude-haiku-4-5")
+# Tiering por env var: modelo pequeno pro volume; um maior quando a análise pesa mais.
+MODELO = os.environ.get("LLM_MODEL_ANDAMENTOS", "small-model")
 
 
 def carregar_manual():
@@ -92,17 +92,17 @@ def chamar_modelo(api_key, system, conteudo):
         "system": system,
         "messages": [{"role": "user", "content": conteudo}],
     }
-    # Haiku não aceita thinking:{disabled} e não pensa por padrão -> omitir.
-    # Sonnet/Opus aceitam disabled (evita gastar budget pensando numa tarefa
+    # O modelo pequeno não aceita thinking:{disabled} e não pensa por padrão -> omitir.
+    # Os maiores aceitam disabled (evita gastar budget pensando numa tarefa
     # onde o "raciocínio" já está estruturado pelo manual).
-    if "haiku" not in MODELO:
+    if MODELO != "small-model":
         corpo["thinking"] = {"type": "disabled"}
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
+        os.environ["LLM_API_URL"],
         data=json.dumps(corpo).encode("utf-8"),
         headers={
             "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
+            "api-version": os.environ.get("LLM_API_VERSION", ""),
             "content-type": "application/json",
         },
     )

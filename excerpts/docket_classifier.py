@@ -23,7 +23,7 @@ interpretar sozinho:
   - confianca (0..1) e precisa_revisao (bool)
 
 USO:
-  - Com chave real (arquivo .env) -> chama a API da Claude.
+  - Com chave real (arquivo .env) -> chama a API do LLM.
   - Sem chave / modo simulado -> use classificar_simulado() para testar o fluxo.
 """
 

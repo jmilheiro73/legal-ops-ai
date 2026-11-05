@@ -37,8 +37,8 @@ Este é um **repositório de case study**: o produto é proprietário e o códig
 O escritório vive e morre por **prazos judiciais**. A plataforma roda essa operação inteira:
 
 - **Mesas de prazos** — quadros de atividades contenciosas e consultivas com sistema de faróis guiado por duas camadas de prazo (o prazo interno do escritório vs. o prazo fatal legal)
-- **Controladoria do diário oficial (IA)** — captura automaticamente toda publicação endereçada ao escritório no DJEN, o **Claude Opus** lê e classifica cada uma, o prazo legal é calculado deterministicamente, e vira atividade rastreada em 1 clique
-- **Robô judicial (IA)** — robô residente que logava no PJe com certificado A3 (smartcard), lia os autos direto da fonte primária, e o **Claude Haiku** produzia um briefing de analista por movimentação — rotulado por gravidade: *agir / olhar / registro / rotina*. Entregue, operado e depois aposentado deliberadamente ([a história completa](#3-análise-de-autos--claude-haiku-lendo-os-pdfs-do-processo))
+- **Controladoria do diário oficial (IA)** — captura automaticamente toda publicação endereçada ao escritório no DJEN, um **LLM grande** lê e classifica cada uma, o prazo legal é calculado deterministicamente, e vira atividade rastreada em 1 clique
+- **Robô judicial (IA)** — robô residente que logava no PJe com certificado A3 (smartcard), lia os autos direto da fonte primária, e um **LLM pequeno e rápido** produzia um briefing de analista por movimentação — rotulado por gravidade: *agir / olhar / registro / rotina*. Entregue, operado e depois aposentado deliberadamente ([a história completa](#3-análise-de-autos--llm-pequeno-lendo-os-pdfs-do-processo))
 - **Portal do cliente** — cada empresa cliente tem seu próprio dashboard (white-label, incluindo o app iOS)
 - E mais: filas de aprovação em duas etapas, CRM de leads, relatórios mensais `.docx` por cliente com upload no Google Drive, relatórios diários por equipe via e-mail, web push self-hosted, trilha de auditoria completa com soft delete, sync 1-way com Trello.
 
@@ -59,7 +59,7 @@ flowchart LR
     end
     subgraph Externos
         DJEN["DJEN (diário oficial)"]
-        ANT["API Anthropic\nOpus · Sonnet · Haiku"]
+        ANT["API de LLM\ntrês tamanhos de modelo"]
         MISC["Trello · Google Drive\nSMTP · Web Push (VAPID)"]
     end
     ROBOT["Robô residente (mini PC)\nPlaywright + certificado A3\nlia os autos do PJe na fonte\n(hoje aposentado)"]
@@ -82,9 +82,9 @@ Regra de projeto nº 2: **um repo, um deploy.** Funções TypeScript e Python co
 
 ## A engenharia de IA (a parte interessante)
 
-### 1. Classificação do diário oficial — Claude Opus + motor determinístico de prazos
+### 1. Classificação do diário oficial — LLM grande + motor determinístico de prazos
 
-Duas vezes ao dia, uma função Python captura toda publicação endereçada ao escritório no diário oficial. Cada uma passa pelo Opus com um **prompt de extração estruturada** que retorna JSON estrito:
+Duas vezes ao dia, uma função Python captura toda publicação endereçada ao escritório no diário oficial. Cada uma passa pelo modelo grande com um **prompt de extração estruturada** que retorna JSON estrito:
 
 ```
 rito · instância · tipo de decisão · exige ação do escritório?
@@ -98,7 +98,7 @@ O prompt não é genérico: ele codifica a doutrina operacional real do escritó
 
 **Human-in-the-loop por design:** nada vira prazo rastreado sem alguém clicar em *Cadastrar* — e nada é descartado sem aprovação do líder da equipe. A IA propõe; o fluxo dispõe.
 
-### 2. Agente de Triagem — Claude Sonnet com ferramentas, medido antes de construído
+### 2. Agente de Triagem — LLM com ferramentas, medido antes de construído
 
 Em produção desde setembro de 2026, por cima do pipeline anterior. A classificação lê cada intimação **isolada**; o agente lê a intimação **no contexto do processo**. Vinte minutos depois de cada captura, ele consulta o cadastro do processo, as intimações anteriores do mesmo processo, as atividades já abertas na Mesa e a planilha da controladoria, e entrega à equipe uma **proposta pronta**: cadastrar (com o prazo já calculado pelo motor), descartar (com a justificativa que o time usaria) ou mandar para revisão humana.
 
@@ -116,10 +116,10 @@ A lista de motivos de descarte também saiu da medição: é a lista real de jus
 
 ```mermaid
 flowchart TD
-    CAP["Captura do DJEN + classificação (Opus)\n07:00 · 23:00"] --> FILA[("Fila da controladoria\nintimação pendente")]
+    CAP["Captura do DJEN + classificação (LLM grande)\n07:00 · 23:00"] --> FILA[("Fila da controladoria\nintimação pendente")]
     FILA -- "cron auxiliar\n07:20 · 23:20" --> LLM
     subgraph LOOP["Agente de Triagem — loop manual, teto de 8 passos"]
-        LLM["Claude Sonnet\nsystem prompt em cache"]
+        LLM["LLM intermediário\nsystem prompt em cache"]
         TOOLS["5 ferramentas só de leitura (Postgres)\ncadastro · histórico · atividades abertas\nplanilha · calcular_prazos"]
         LLM -- "tool_use" --> TOOLS
         TOOLS -- "tool_result" --> LLM
@@ -134,7 +134,7 @@ flowchart TD
 
 **Desenho.**
 
-- **Claude Sonnet, loop manual de tool use.** Chamar o modelo → `tool_use` → executar → devolver `tool_result` → repetir, com teto de **8 passos**. Sem o tool runner do SDK e sem framework: mais linhas, mas cada decisão fica à vista. Se uma ferramenta falha, o erro volta para o modelo como `tool_result` com `is_error` e a rodada não cai.
+- **LLM intermediário, loop manual de tool use.** Chamar o modelo → `tool_use` → executar → devolver `tool_result` → repetir, com teto de **8 passos**. Sem o tool runner do SDK e sem framework: mais linhas, mas cada decisão fica à vista. Se uma ferramenta falha, o erro volta para o modelo como `tool_result` com `is_error` e a rodada não cai.
 - **Ferramentas `strict` e só de leitura.** A API garante que os argumentos chegam no formato do schema. O agente não grava nada: quem grava é o cron que o chama.
 - **Saída estruturada imposta pela API, validada de novo na chegada.** O JSON Schema é gerado do modelo Pydantic e vai como formato de saída; a resposta passa por `Proposta.model_validate_json`. Todo campo de decisão é `Literal` fechado: se o modelo escrever `"cadastro"` em vez de `"cadastrar"`, a validação falha e o erro fica registrado, em vez de um valor inesperado entrar no banco. A ordem dos campos é proposital — raciocínio primeiro, confiança por último.
 - **O prazo continua no código.** `calcular_prazos` recebe a classificação no mesmo schema da proposta final e roda o motor que já existia. Se o modelo muda de ideia depois de calcular, o código recalcula pela classificação final.
@@ -190,13 +190,13 @@ class Proposta(BaseModel):
 
 Modelo, esforço e versão do agente são parâmetros do script: a mesma amostra roda contra outro modelo ou outra versão do prompt, e os números ficam comparáveis.
 
-### 3. Análise de autos — Claude Haiku lendo os PDFs do processo
+### 3. Análise de autos — LLM pequeno lendo os PDFs do processo
 
-O robô residente loga no PJe com certificado físico (Playwright + automação de UI do Windows + TOTP), puxa a **timeline e os PDFs reais** de cada processo pela API autenticada, e envia ao Haiku como document blocks nativos — sem pipeline de OCR, sem etapa de extração de texto.
+O robô residente loga no PJe com certificado físico (Playwright + automação de UI do Windows + TOTP), puxa a **timeline e os PDFs reais** de cada processo pela API autenticada, e envia ao modelo pequeno como document blocks nativos — sem pipeline de OCR, sem etapa de extração de texto.
 
 O system prompt é um **manual de analista** escrito à mão — um método de 7 perguntas que o modelo aplica como raciocínio interno, proibido de aparecer na saída. O contrato de saída é fixo: etiqueta de gravidade (**AGIR / OLHAR / REGISTRO / ROTINA**), resumo do processo em um parágrafo e — só quando exige ação — uma ficha estruturada. Ver [`excerpts/docket_analyst.py`](./excerpts/docket_analyst.py).
 
-**Tiering de modelo pelo custo do erro:** Opus para a classificação que cria prazos legais (volume baixo, custo de erro catastrófico), Haiku para leitura de autos em volume (um resumo ruim é chato, não perigoso). Mesma plataforma, dois preços, escolhidos de propósito.
+**Tiering de modelo pelo custo do erro:** Modelo grande para a classificação que cria prazos legais (volume baixo, custo de erro catastrófico), modelo pequeno para leitura de autos em volume (um resumo ruim é chato, não perigoso). Mesma plataforma, dois preços, escolhidos de propósito.
 
 **Epílogo — entregue, medido, aposentado.** Essa foi a engenharia mais difícil do projeto (login com certificado físico, throttling imposto pelo WAF, estado à prova de queda numa máquina que é desligada da tomada) — e funcionou. Mas o relatório semanal de cobertura repetia a verdade inconveniente: o robô só alcançava ~39% da carteira — o resto vivia em outros tribunais ou atrás de habilitações pendentes na OAB — então o fornecedor legado de dados nunca poderia ser desligado. Quando a necessidade que ele atendia passou, eu o desativei em vez de pagar indefinidamente o custo operacional de duas fontes sobrepostas. Aposentar um pipeline que funciona porque os dados mandam é tão engenharia de IA quanto entregá-lo.
 
@@ -223,7 +223,7 @@ As partes que só se aprendem rodando isso por meses:
 
 *Todos os dados nas capturas são fictícios (censurados a partir de telas de produção).*
 
-**Controladoria — visão Controle do dia**: toda publicação capturada do diário oficial, classificada pelo Claude Opus e acompanhada no fluxo human-in-the-loop (cadastrada / descarte aguardando aprovação do líder):
+**Controladoria — visão Controle do dia**: toda publicação capturada do diário oficial, classificada pelo LLM e acompanhada no fluxo human-in-the-loop (cadastrada / descarte aguardando aprovação do líder):
 
 ![Controladoria visão Controle](./docs/img/controladoria-controle.png)
 
@@ -241,7 +241,7 @@ As partes que só se aprendem rodando isso por meses:
 
 ## Stack
 
-React 19 · TypeScript · Vite 7 · Tailwind · PWA (Service Worker custom) · Vercel Functions (Node + Python) · Supabase Postgres · API Anthropic (Claude Opus / Sonnet / Haiku) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
+React 19 · TypeScript · Vite 7 · Tailwind · PWA (Service Worker custom) · Vercel Functions (Node + Python) · Supabase Postgres · API de LLM (três tamanhos de modelo) · Playwright · React Native/Expo · web-push · nodemailer · Google APIs
 
 ---
 
