@@ -26,7 +26,6 @@ Este é um **repositório de case study**: o produto é proprietário e o códig
 | | |
 |---|---|
 | Em produção | desde 2025, sem time de ops — só eu |
-| Processos acompanhados | ~1.060 em toda a carteira do escritório |
 | Pipelines de IA entregues em produção | 4 — classificação do diário oficial, Agente de Triagem e resumo em lote seguem rodando; o robô de autos foi aposentado deliberadamente (história abaixo) |
 | Funções serverless | ~95 (TypeScript + Python, mesmo repo, mesmo deploy) |
 | Jobs agendados | 25 crons na Vercel (capturas, triagem, relatórios, pushes, syncs) |

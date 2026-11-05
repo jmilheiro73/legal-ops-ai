@@ -26,7 +26,6 @@ This is a **case study repository**: the product is proprietary and the full sou
 | | |
 |---|---|
 | In production | since 2025, no dedicated ops team — just me |
-| Lawsuits tracked | ~1,060 across the firm's portfolio |
 | AI pipelines shipped to production | 4 — court-diary classification, the triage agent and batch summarization still running; the docket robot was deliberately retired (its story below) |
 | Serverless functions | ~95 (TypeScript + Python, same repo, same deploy) |
 | Scheduled jobs | 25 Vercel crons (captures, triage, reports, pushes, syncs) |
